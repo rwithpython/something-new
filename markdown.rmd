@@ -1,0 +1,74 @@
+---
+title: "统计学习导论——基于R应用"
+author: "yyp"
+date: "2017年9月26日"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##关于R的基础
+####数据结构分为向量、矩阵、数组、数据框、因子和列表.请参考R语言实战和Introduction to R for Data Science(https://courses.edx.org/courses/course-v1:Microsoft+DAT204x+2T2017/course/)
+
+####如果你使用的不是RStudio，而是VS2017或者RGUI，关于RMarkdown的使用请参考《R语言实战》Ch22
+
+##简单线性回归
+```{r warning=FALSE}
+library(MASS)
+fix(Boston)  #看一下Boston是一张怎样的数据表
+names(Boston)
+#lm.fit =lm(medv ~ lstat, data = Boston)
+attach(Boston)
+lm.fit = lm(medv ~ lstat)  #得到线性回归函数
+lm.fit  #系数
+```
+查看置信区间，p值，标准误，R^2，F统计量
+```{r warning=FALSE}
+summary(lm.fit) 
+confint(lm.fit) #得到系数估计值的置信区间
+predict(lm.fit, data.frame(lstat = (c(2, 6, 9))), interval = "confidence") #用lstat预测medv得到的置信区间
+predict(lm.fit, data.frame(lstat = (c(2, 6, 9))), interval = "prediction") #用lstat预测medv得到的预测区间
+```
+## Plots
+
+```{r , echo=TRUE}
+plot(lstat, medv, col="blue")
+abline(lm.fit, lwd = 3, col = "red")
+```
+
+##多元线性回归
+```{r warning=FALSE}
+lm.fit1 = lm(medv ~ lstat + age, data = Boston) #medv关于lstat和age的回归模型
+summary(lm.fit1)
+lm.fit2 = lm(medv ~ ., data = Boston) #medv关于所有变量的回归模型
+summary(lm.fit2)
+lm.fit3 = lm(medv ~ . - age, data = Boston) #medv关于除了age以外的所有变量的回归模型
+#lm.fit3=update(lm.fit,~.-age)
+summary(lm.fit3)
+summary(lm(medv ~ lstat * age, data = Boston)) #包含了lstat，age和lstat与age的交互项
+#summary(lm(medv ~ lstat + age + lstat : age, data = Boston))
+```
+也可以把X的二次项，三次项写进去
+```{r , echo=TRUE}
+lm.fit4 = lm(medv ~ poly(lstat, 5)) #把lstat的一阶二阶至五阶全部写进去了
+summary(lm.fit4)
+```
+通过假设检验比较两个模型哪一个拟合效果更好
+```{r , echo=TRUE}
+anova(lm.fit2,lm.fit3)
+```
+####如果自变量里面有定性变量，R会自动创建虚拟变量
+
+##编写一个简单的函数
+```{r , echo=FALSE}
+AmazingFunction=function(X)
+{
+X=X*X
+}
+```
+```{r,echo=TRUE}
+print(AmazingFunction(7))
+```
+如果要把二次项引入线性回归，要用这个函数，不能用lstat^2(为什么？>.<)
