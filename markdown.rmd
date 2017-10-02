@@ -1,12 +1,14 @@
 ---
-title: "统计学习导论——基于R应用"
-author: "yyp"
-date: "2017年9月26日"
+title: "统计学习导论——基于R应用（1）"
+author: "杨钰萍(yangyupingentian@outlook.com)"
+date: "2017年10月2日"
 output: html_document
 ---
 
 ```{r setup, include=FALSE}
+
 knitr::opts_chunk$set(echo = TRUE)
+
 ```
 
 ##关于R的基础
@@ -14,32 +16,48 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ####如果你使用的不是RStudio，而是VS2017或者RGUI，关于RMarkdown的使用请参考《R语言实战》Ch22
 
-##简单线性回归
-```{r warning=FALSE}
+####以下部分语句涉及到简单的函数编写及调用
+
+##线性回归
+
+###简单线性回归
+```{r warning=FALSE,message=FALSE}
+
+#Boston数据集在MASS包里面
 library(MASS)
-fix(Boston)  #看一下Boston是一张怎样的数据表
-names(Boston)
-#lm.fit =lm(medv ~ lstat, data = Boston)
+#fix(Boston)  #看一下Boston是一张怎样的数据表
+names(Boston)#看一下Boston数据表中的各个变量名称
+
 attach(Boston)
-lm.fit = lm(medv ~ lstat)  #得到线性回归函数
-lm.fit  #系数
+lm.fit = lm(medv ~ lstat) #得到线性回归函数
+#lm.fit =lm(medv ~ lstat, data = Boston)
+lm.fit #系数
+
 ```
-查看置信区间，p值，标准误，R^2，F统计量
+
 ```{r warning=FALSE}
-summary(lm.fit) 
+
+summary(lm.fit) #查看置信区间，p值，标准误，R^2，F统计量
 confint(lm.fit) #得到系数估计值的置信区间
 predict(lm.fit, data.frame(lstat = (c(2, 6, 9))), interval = "confidence") #用lstat预测medv得到的置信区间
 predict(lm.fit, data.frame(lstat = (c(2, 6, 9))), interval = "prediction") #用lstat预测medv得到的预测区间
+
 ```
-## Plots
+
+####画出函数拟合图
 
 ```{r , echo=TRUE}
+
 plot(lstat, medv, col="blue")
 abline(lm.fit, lwd = 3, col = "red")
+
 ```
 
-##多元线性回归
-```{r warning=FALSE}
+###多元线性回归
+
+```{r, results='hide', warning=FALSE}
+
+#把results='hide'去掉以查看输出结果
 lm.fit1 = lm(medv ~ lstat + age, data = Boston) #medv关于lstat和age的回归模型
 summary(lm.fit1)
 lm.fit2 = lm(medv ~ ., data = Boston) #medv关于所有变量的回归模型
@@ -49,26 +67,252 @@ lm.fit3 = lm(medv ~ . - age, data = Boston) #medv关于除了age以外的所有变量的回归
 summary(lm.fit3)
 summary(lm(medv ~ lstat * age, data = Boston)) #包含了lstat，age和lstat与age的交互项
 #summary(lm(medv ~ lstat + age + lstat : age, data = Boston))
-```
-也可以把X的二次项，三次项写进去
-```{r , echo=TRUE}
+
+#如果要把二次项引入线性回归 ，要用I()，不能用lstat^2， 因为 "^" 表示交互项达到某一个次数，或者用下面的函数
 lm.fit4 = lm(medv ~ poly(lstat, 5)) #把lstat的一阶二阶至五阶全部写进去了
 summary(lm.fit4)
+
 ```
-通过假设检验比较两个模型哪一个拟合效果更好
-```{r , echo=TRUE}
-anova(lm.fit2,lm.fit3)
-```
+
 ####如果自变量里面有定性变量，R会自动创建虚拟变量
 
-##编写一个简单的函数
-```{r , echo=FALSE}
-AmazingFunction=function(X)
-{
-X=X*X
-}
+####选择“最佳”模型
+
+方法1：anova检验（这个函数可以比较两个嵌套模型的拟合优度）（（必须要是嵌套模型））
+
+```{r , echo=TRUE}
+
+anova(lm.fit3, lm.fit2)
+#这里第一个模型嵌套在第二个模型中，结果显示，p值为0.96，意味着检验不显著，即不拒绝原假设，也就是不需要把age引入线性模型中。
+
 ```
+方法2：用赤池信息量准则（AIC）((寻找可以最好地解释数据但包含最少自由参数的模型))(((没有嵌套模型的要求)))
+
 ```{r,echo=TRUE}
-print(AmazingFunction(7))
+
+AIC(lm.fit3,lm.fit2)
+#这里表明lm.fit3更好，跟上面用ANOVA的结果一样（两种方法会不会出现不同的结果？？？）
+
 ```
-如果要把二次项引入线性回归，要用这个函数，不能用lstat^2(为什么？>.<)
+
+如果不止两个模型（有很多变量，就有可能产生很多模型），就要通过变量选择从大量的候选变量里面得到最终的自变量（较为流行以下两种）（（CH6的内容，下次再说））
+
+方法3：逐步回归法
+
+方法4：全子集回归
+
+---------------------------------------------------------------------------------------------------------------------
+
+##线性回归会出现一些问题：
+
+自相关性
+
+线性性：左上图用来检验是否满足线性性（如果自变量与因变量线性相关，那么残差值与拟合值没有任何系统关联）（不是经典假设之一）（（（残差有较强的模式，说明数据是非线性的）））
+
+正态性：右上图用来检验是否违反正态性假设（正态性：对于固定的自变量值，因变量值成正态分布）（（这个不是五个经典假设之一，而是由经典假设推导产生））（（（基本在45°角的直线上，满足正态性）））
+
+同方差性：左下图用来检验是否满足同方差性（如果满足同方差性，水平线周围的点应该是随机分布的）（（（不是随机分布，说明存在异方差性）））
+
+离群点和高杠杆值点和强影响点（%%强影响点不知道怎么看%%）((%%找出来的异常点，没有点的序号%%))
+
+###标准诊断图形
+
+```{r,echo=TRUE,warning=FALSE}
+
+#Auto数据集在ISLR包里面
+library(ISLR)
+lm.fit5 <- lm(mpg ~ horsepower, data = Auto)
+par(mfrow = c(2, 2))
+plot(lm.fit5)
+#加入二次项，与原来的回归诊断图进行比较
+lm.fit55 <- lm(mpg ~ horsepower + I(horsepower ^ 2), data = Auto)
+par(mfrow = c(2, 2))
+plot(lm.fit55)
+
+```
+
+```{r,echo=TRUE,warning=FALSE}
+
+#以下使用基础包中的state.x77数据集(这个数据集是一个矩阵)
+states<-as.data.frame(state.x77[,c("Murder","Population","Illiteracy","Income","Frost")])#这边是为了把以矩阵形态存在的数据集变成数据框
+lm.fit6 <- lm(Murder ~ ., data = states)
+par(mfrow = c(2, 2))
+plot(lm.fit6)
+
+```
+
+###更好的方法（综合）（（基于gvlma包））
+
+```{r,echo=TRUE,warning=FALSE}
+
+library(gvlma)
+gvmodel <- gvlma(lm.fit6)
+summary(gvmodel)
+#后面5项东西看不太懂...讨论一下
+
+```
+
+###更好的方法（分散）（（基于car包））
+
+####自相关性（用D-W检验）
+
+```{r,echo=TRUE}
+
+library(car)
+durbinWatsonTest(lm.fit6)#P>0.05,不能拒绝原假设，即不存在自相关性
+
+```
+
+####线性性（用偏残差图）
+
+```{r,echo=TRUE}
+
+crPlots(lm.fit6) #具体可以再探究，跟标准诊断图形的左上图是吻合的，都表示满足线性性
+
+```
+
+####正态性
+
+```{r,echo=TRUE,warning=FALSE}
+
+#car包提供大量函数，大大增强拟合和评价回归模型的能力
+qqPlot(lm.fit6, label=row.names(states),id.method="identify",simulate = TRUE, main = "学生化残差的Q-Q图")
+
+```
+
+自己编写一个函数用来画学生化残差图
+
+```{r,echo=TRUE}
+
+rsdplot <- function(fit, nbreaks = 10)
+{
+	z <- rstudent(fit)
+    hist(z, breaks = nbreaks, freq = FALSE, xlab = "studentized residual", main = "distribution of errors")
+    rug(jitter(z), col = "brown")
+    curve(dnorm(x, mean = mean(z), sd = sd(z)), add = TRUE, col = "blue", lwd = 2)
+    lines(density(z)$x, density(z)$y, col = "red", lwd = 2, lty = 2)
+    legend("topright", legend = c("normal curve", "kernel density cuve"), lty = c(1,2), col = c("blue", "red"), cex = 0.7)
+}
+rsdplot(lm.fit6)
+#除了一个很明显的离群点 ，其他误差值都很好地服从了正态分布，而且密度曲线跟正态分布曲线很接近
+#这个柱状图 ，和密度测量分布能够很方便地看出分布的斜度（比Q-Q图容易）
+
+```
+
+####同方差性
+
+方法1、图形法
+
+```{r,echo=TRUE}
+
+spreadLevelPlot(lm.fit6)
+#红色是最佳拟合曲线，点分布较为均匀，所以满足方差不变
+
+```
+方法2、假设检验法
+
+```{r,echo=TRUE}
+
+ncvTest(lm.fit6)
+#p=0.19,说明不显著，即满足原假设，也就是说，不存在异方差性
+
+```
+
+####多重共线性
+
+```{r,echo=TRUE}
+
+sqrt(vif(lm.fit6)) > 2 #先计算方差膨胀因子，再与2比较大小
+#TRUE表明存在多重共线性，FALSE表明不存在多重共线性，所以可以看到这边不存在多重共线性
+
+```
+
+####离群点
+
+方法1：通过Q-Q图，落在置信区间外的是离群点
+
+方法2：标准化残差值>2或<-2的可能是离群点
+
+方法3：
+
+```{r,echo=TRUE}
+
+outlierTest(lm.fit6)
+#这个函数，是通过！单个！最大（—or+）残差值的显著性来判断是否具有离群点，如果不显著，就说明没有离群点，如果显著，必须删除这个离群点，然后再次使用这个函数用来判断是不是还有其他离群点的存在
+```
+
+####高杠杆值点
+
+```{r,echo=TRUE,warning=FALSE}
+hatplot <- function(fit)
+{
+    p <- length(coefficients(fit)) #p是参数个数
+    n <- length(fitted(fit))#n是样本量
+    plot(hatvalues(fit), main = "Index Plot of Hat Values")
+    abline(h = c(2, 3) * p / n, col = "red", lty = 2)
+    identify(1:n, hatvalues(fit), names(hatvalues(fit)))#定位函数，还是不知道怎么用emm...
+}
+hatplot(lm.fit6)
+
+```
+
+####强影响值点
+
+方法1：计算Cook距离并绘图（Cook’s D图）（该图对于找强影响点很有用，但是不能反映这些点是怎么影响模型的）((这个图可以直接显示出来强影响点的名字))
+
+```{r,echo=TRUE}
+
+cutoff <- 4 / (nrow(states) - (length(lm.fit6$coefficients) - 1) - 1)
+plot(lm.fit6, which = 4, cook.levels = cutoff)#？which=4表示前面的第四张图，但是第4张图并不是这样的，不懂。
+abline(h = cutoff, lty = 2, col = "red")
+
+```
+
+方法2：绘制变量添加图（这个图，我不是很看得懂（书上说：图中的直线表示相应预测变量的实际回归系数））
+
+```{r,echo=TRUE}
+
+avPlots(lm.fit6)
+
+```
+
+####把三种点整合到一个图里面（标准诊断图里面的第四幅应该也算（（但是我不太会看）））
+
+```{r,echo=TRUE}
+
+influencePlot(lm.fit6,main="influence plot",sub="circle size is proportional to cook's distance")
+#纵坐标看离群点(>2或<-2),横坐标看高杠杆值点（>0.2或0.3），圈圈大小看对模型参数估计的影响大小，太大的可能是强影响点
+#R in active P185 对图的解释可能有点问题，探讨一下。
+
+```
+
+--------------------------------------------------------------------------------------------------------------------
+
+##解决问题（改进模型）
+
+####违反正态性假设（对因变量进行某种变换）
+
+```{r,echo=TRUE,warning=FALSE}
+
+summary(powerTransform(states$Murder))
+#结果表明，用murder^0.6来正态化变量murder，但是发现不能拒绝lambda=1的假设，意味着，不需要进行该变量变换
+
+```
+
+####违反线性假设（对自变量进行某种变换）
+
+```{r,echo=TRUE,warning=FALSE}
+
+boxTidwell(Murder ~ Population + Illiteracy, data = states)
+#结果表明使用变换，可以改善线性关系，但是由于计分检验的P值都>0.05，所以不能拒绝原假设，意味着不需要进行该变量变换
+
+```
+####违反同方差性（对因变量进行某种变换）
+
+前面在<更好的方法（分散）>里面，检验同方差性的时候已经提到了
+
+####存在多重线性问题
+
+方法一：删除存在多重共线性的变量（把<更好的方法（分散）>里面，检测多重共线性，出现TRUE的变量删除）
+
+方法二：岭回归（专门处理多重共线性）((下次再讲))
