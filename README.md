@@ -1,2 +1,3 @@
 # something-new
-HELLO WORLD~~~~~~~~~~~~~~~
+lr是markdown的更新
+plr是作业
