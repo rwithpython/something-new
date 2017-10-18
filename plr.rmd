@@ -1,0 +1,253 @@
+---
+title: "统计学习导论——基于R应用（1-作业）"
+author: "杨钰萍
+
+(mailto:yangyupingentian@outlook.com)"
+date: "2017年10月16日"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+第8题（简单线性回归的题目）
+```{r,warning=FALSE,message=FALSE}
+library(ISLR)
+attach(Auto)
+lm.fit1 <- lm(mpg ~ horsepower)
+summary(lm.fit1)
+#F统计量远大于1，其对应的p值很小（*也有三个啊），因此拒绝零假设，即两者相关
+#法一：看R^2,该预测解释60.6%的horsepower方差；法二：RSE/mean(mpg)，得到误差百分比
+#horsepower的系数为负，所以是负相关
+```
+
+
+```{r,warning=FALSE,message=FALSE}
+predict(lm.fit1, data.frame(horsepower = 98), interval = "confidence") #预测值和置信区间
+predict(lm.fit1, data.frame(horsepower = 98), interval = "prediction") #预测值和预测区间
+#predict(lm.fit1, data.frame(horsepower = (c(98))), interval = "prediction")，单个变量预测不需要写成向量的形式
+
+plot(horsepower, mpg, main = "响应变量与预测变量的关系图")
+abline(lm.fit1, lwd = 3, col = "blue")
+
+#8-（c）没做
+par(mfrow = c(2, 2))
+plot(lm.fit1)
+#有离群点，高杠杆值点，拟合图有明显曲线，应该不是一次线性模型
+```
+
+第9题（多元线性回归的题目）
+```{r,warning=FALSE,message=FALSE}
+library(car)
+pairs(Auto)#画出所有变量的散点图
+dat <- subset(Auto, select = -name) #用subset()来取数据集
+#dat<-Auto[,c("","","",...)]也是可以的，这边的Auto是数据集，所以不需要用as.data.frame(...)
+scatterplotMatrix(dat, spread = FALSE, smoother.args = list(lty = 2), main = "除name以外所有变量的散点图矩阵")
+cor(dat)
+lm.fit2 <- lm(mpg ~ ., data = dat)
+summary(lm.fit2)
+#i.有关系
+#ii.displacement,weight,year,origin与响应变量之间有显著关系
+#iii.系数为0.750773，系数为正，说明year与mgp有正相关性，且车龄每增加一单位，mpg平均增加0.750773个单位（year的系数看错了吧？？？）
+par(mfrow = c(2, 2))
+plot(lm.fit2)
+#残差与拟合图中可以清楚的看到一个曲线关系，意味着可能要加入一个二次项
+#从残差图可以看到有离群点，杠杆图有两个点在cook距离虚线外面，说明存在强影响点
+#（e,f）没有做
+```
+
+第10题（分类变量的多元线性回归的题目）
+```{r,warning=FALSE,message=FALSE}
+library(ISLR)
+attach(Carseats)
+lm.fit3 <- lm(Sales ~ Price + Urban + US)
+summary(lm.fit3)
+contrasts(Urban) #获知编码方式
+contrasts(US)
+#price的系数为-0.054459，是显著的，表示price每增加一个单位，sales平均减少-0.054459
+#Urban的系数为-0.021916，是不显著的
+#USyes的系数为1.200573，是显著的，表示是美国的，对price起正相关作用
+#price和USyes是显著的，可以拒绝零假设
+#改进模型
+lm.fit4 <- lm(Sales ~ Price + US)
+summary(lm.fit4)
+#没有什么大区别但是调整的R^2大了一点点
+confint(lm.fit4, level = 0.95)#计算系数的95%的置信区间
+par(mfrow = c(2, 2))
+plot(lm.fit4)
+#从右下图看到有离群点和高杠杆值点
+
+```
+
+```{r,warning=FALSE,message=FALSE}
+#或者用这个函数来判断，更加直观，也可以用outlierTest()来找离群点，用帽子统计量来找高杠杆值点，用cook距离来找强影响点
+library(car)
+influencePlot(lm.fit4, id.method = "identify", main = "influence plot", sub = "circle size is proportional to Cook's distance")
+```
+
+第11题
+```{r,warning=FALSE,message=FALSE}
+set.seed(1)
+x = rnorm(100)
+y = 2 * x + rnorm(100)
+lm.fit5 <- lm(y ~ x + 0) #y对x的回归
+summary(lm.fit5)
+lm.fit6 <- lm(x ~ y + 0) #x对y的回归
+summary(lm.fit6)
+names(lm.fit6)
+#两个模型系数乘积不是1，为什么？两个函数的拟合优度R^2是一样的,t值都是18.73
+#t统计量可以写成如下形式：
+sqrt(length(x) - 1) * sum(x * y) / sqrt(sum(x * x) * sum(y * y) - (sum(x * y)) ^ 2)
+#因为这个式子是对称的，所以无论是x对y还是y对x的回归，t值都是一样的
+#lm.fit7 <- lm(y ~ x)
+#只能通过运行直接看，应该有办法来提取t值
+#y2 <- as.data.frame(summary(lm.fit7))
+#Error in as.data.frame.default(summary(lm.fit7)) : 
+#不能把 "" summary.lm "" 类别强迫变成数据框
+```
+
+第12题(未解决)
+根据3.38的话，当sum(x)==sum(y)时，有回归的系数估计相等
+```{r,warning=FALSE,message=FALSE}
+#t值相同
+set.seed(1)
+x = rnorm(100, mean = 0, sd = 40)
+y = rnorm(100, mean = 0, sd = 40)
+summary(lm(x ~ y))
+summary(lm(y ~ x))
+#t值不同
+set.seed(1)
+x = rnorm(100, mean = 0, sd = 20)
+y = rnorm(100, mean = 0, sd = 40)
+summary(lm(x ~ y))
+summary(lm(y ~ x))
+```
+
+第13题（原始数据集,sd=0.5）
+```{r,warning=FALSE,message=FALSE}
+set.seed(1)
+x <- rnorm(100)
+eps <- rnorm(100, mean = 0, sd = 0.5)
+y = -1 + 0.5 * x + eps
+length(y)
+plot(x, y)
+lm.fit7 <- lm(y ~ x)
+abline(lm.fit7, col = "red")
+summary(lm.fit7)
+summary(lm(y ~ x + I(x ^ 2)))
+#二次项并没有提高拟合度，因为二次项是不显著的
+legend("topleft", title = "model type", "y~x", lty = 1, pch = 15, col ="red" )
+```
+
+第13题（低噪声数据集,sd=0.05）
+```{r,warning=FALSE,message=FALSE}
+set.seed(1)
+x <- rnorm(100)
+eps <- rnorm(100, mean = 0, sd = 0.05)
+y = -1 + 0.5 * x + eps
+length(y)
+plot(x, y)
+lm.fit71 <- lm(y ~ x)
+abline(lm.fit71, col = "red")
+summary(lm.fit71)
+summary(lm(y ~ x + I(x ^ 2)))
+
+legend("topleft", title = "model type", "y~x", lty = 1, pch = 15, col = "red")
+```
+
+第13题（高噪声数据集,sd=5）
+```{r,warning=FALSE,message=FALSE}
+set.seed(1)
+x <- rnorm(100)
+eps <- rnorm(100, mean = 0, sd = 5)
+y = -1 + 0.5 * x + eps
+length(y)
+plot(x, y)
+lm.fit72 <- lm(y ~ x)
+abline(lm.fit72, col = "red")
+summary(lm.fit72)
+summary(lm(y ~ x + I(x ^ 2)))
+
+legend("topleft", title = "model type", "y~x", lty = 1, pch = 15, col = "red")
+```
+
+噪声越低，拟合效果越好，二次项均为不显著项,而且低噪声数据集的拟合系数已经十分接近原始模型的系数：0.5，高噪声数据集已经无法用线性模型拟合
+
+第14题（共线性问题）
+```{r,warning=FALSE,message=FALSE}
+set.seed(1)
+x1 = runif(100)
+x2 = 0.5 * x1 + rnorm(100) / 10
+y = 2 + 2 * x1 + 0.3 * x2 + rnorm(100)
+cor(x1, x2)
+plot(x1, x2) #b变量的散点图，明显地可以看出是有正相关关系的
+lm.fit8 <- lm(y ~ x1 + x2)
+summary(lm.fit8)
+summary(lm(y ~ x1)) #用x1来预测y
+summary(lm(y ~ x2)) #用x2来预测y
+#用x1和x2来预测y，得到的结果是x1是显著的，x2是不显著的，用x1或x2单独来预测y，得到的结果发现均为显著，这些结果看似矛盾，但实际上是不矛盾的，因为从x1和x2的相关系数和散点图中可以看到，x1和x2存在很强的正相关性，即存在强烈的共线性问题。存在高度共线性问题时，会导致参数估计时，会增大估计参数的置信区间，使得接受一个本应拒绝的原假设的概率增大，即错误的接受原假设，也就是使得假设检验不显著，这就解释了出现x2在多元回归中的不显著和在简单线性回归中的显著情况
+x1 <- c(x1, 0.1)
+x2 <- c(x2, 0.8)
+y <- c(y, 6)
+lm.fit81 <- lm(y ~ x1 + x2)
+summary(lm.fit81)
+summary(lm(y ~ x1)) #用x1来预测y
+summary(lm(y ~ x2))
+library(car)
+par(mfrow=c(1,2))
+influencePlot(lm.fit8, id.method = "identify", main = "influence plot", sub = "circle size is proportional to cook's distance")
+influencePlot(lm.fit81, id.method = "identify", main = "influence plot", sub = "circle size is proportional to cook's distance")
+#这个新的观测的存在，使得y对x1和x2的回归中，原先x1显著，x2不显著，变成了x1不显著，x2显著
+#由图，明显存在离群点，高杠杆值点
+```
+
+第15题（分）
+```{r,,warning=FALSE,message=FALSE}
+library(MASS)
+attach(Boston)
+
+#通过一个循环对于所有变量一一进行简单线性回归
+#每一个拟合对应一个输出
+n=length(Boston)
+for (i in 2:n)
+{
+    lm <- lm(Boston[[1]] ~ Boston[[i]])
+    plot(Boston[[i]] ~ Boston[[1]],main="crim与各分量的回归拟合图")
+	abline(lm,col="red")
+	print(summary(lm))
+}
+#感觉跟各分量的拟合不是特别好
+```
+
+第15题(总)
+```{r,,warning=FALSE,message=FALSE}
+library(MASS)
+attach(Boston)
+par(mfrow=c(4,4))
+n=length(Boston)
+for (i in 2:n)
+{
+    lm <- lm(Boston[[1]] ~ Boston[[i]])
+    plot(Boston[[i]] ~ Boston[[1]],main="crim与各分量回归拟合图")
+	abline(lm,col="red")
+	#print(summary(lm))
+
+}
+```
+
+第15题（多元线性回归）
+```{r,,warning=FALSE,message=FALSE}
+#进行多元回归
+library(MASS)
+attach(Boston)
+lm.fit101 <- lm(crim ~ ., data = Boston)
+summary(lm.fit101)
+#由结果发现zn，dis ，rad ，black， medv  是显著的
+```
+
+第15题(c不太看懂)
+```{r,,warning=FALSE,message=FALSE}
+
+```
