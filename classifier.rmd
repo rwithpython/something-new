@@ -1,0 +1,174 @@
+---
+title: "统计学习导论——基于R应用（2）"
+author: "yyp（mailto：yangyupingrntian@outlook.com）"
+date: "2017年10月24日"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+LR,LDA,QDA,KNN及其比较：基于对股票市场的数据的数值和图像进行描述性统计
+
+glm()在基础包，lda()和qda()在MASS库里面，knn()在class库里面,Smarket数据集在ISLR库里面
+
+Smarket数据集：2001年年初至2015年年末1250天S&P500股票指数的投资回报率，Lag1到Lag5表示过去五个交易日中的每个交易日的投资回报率，Volume表示前一日的股票成交量（十亿），Today表示当日的投资回报率，Direction表示这些数据在市场的走势方向（up：涨，down：跌）
+
+```{r,echo=TRUE,warning=FALSE}
+library(ISLR)
+fix(Smarket)
+names(Smarket)#显示数据集变量
+attach(Smarket)
+dim(Smarket)#显示数据集维度
+summary(Smarket)
+pairs(Smarket)#画出所有变量两两之间的散点图
+cor(Smarket[, -9])#计算所有变量两两之间的相关系数矩阵，但是定性变量不可以
+plot(Volume)
+```
+
+##逻辑斯谛回归
+```{r,echo=TRUE,warning=FALSE}
+glm.fit <- glm(Direction ~ . - Year - Today, family = binomial, data = Smarket) #family = binomial表示执行逻辑斯谛回归
+summary(glm.fit)
+
+glm.probs <- predict(glm.fit, type = "response") #type = "response"表示输出概率P(Y=1|X)，而不输出其他信息
+glm.probs[1:10] 
+contrasts(Direction) #这里可以看出，R自己创建哑变量，1代表UP
+
+#以下两条语句把预测的概率转化为类别
+glm.pred <- rep("Down", 1250) #创建一个有1250个“Down”元素的向量
+glm.pred[glm.probs > 0.5] = "UP" #把向量中上涨概率大于0.5的变成“UP”
+
+table(glm.pred, Direction)#table()产生混淆矩阵
+mean(glm.pred == Direction) #用来计算正确预测的比例##这边有问题，下面的mean（）都有问题
+```
+
+以上用同一组模型同时做训练和预测模型，这样是不对的！！！要一些数据用作训练模型，剩下的数据用作预测才比较好
+
+以下区分了训练样本和预测样本
+```{r,echo=TRUE,warning=FALSE}
+train = (Year < 2005)#是一个布尔向量，不是从smarket的索引，2001-2004的为TRUE，2005的为false
+Smarket.2005 <- Smarket[!train,]#2005年年初到年末的所有数据
+Direction.2005 <- Direction[!train]#2005年的走势数据
+
+glm.fit1 <- glm(Direction ~ . - Year - Today, family = binomial, data = Smarket, subset = train)#训练集：2001-2004的数据
+glm.probs <- predict(glm.fit1, Smarket.2005, type = "response")#测试集：2005年的数据，得到2005年的走势预测
+
+glm.pred <- rep("Down", 252) #创建一个有1250个“DOWN”元素的向量
+glm.pred[glm.probs > 0.5] = "UP" #把向量中上涨概率大于0.5的变成“UP”
+
+table(glm.pred, Direction.2005)
+mean(glm.pred == Direction.2005) #用来计算正确预测的比例
+mean(glm.pred != Direction.2005) #用来计算错误预测的比例
+
+```
+
+由于加入与响应变量无关的预测变量会造成测试错误率的增大（因为这样的预测变量会增大模型方差，但不会降低模型偏差），所以考虑去掉一些预测变量来优化模型。
+
+只用lag1和lag2来拟合
+```{r,echo=TRUE,warning=FALSE}
+glm.fits = glm(Direction ~ Lag1 + Lag2, data = Smarket, family = binomial, subset = train)
+glm.probs = predict(glm.fits, Smarket.2005, type = "response")
+glm.pred = rep("Down", 252)
+glm.pred[glm.probs >0.5] = "Up"
+table(glm.pred, Direction.2005)
+mean(glm.pred == Direction.2005)#这边的mean()就没问题，表明56%的市场动向可以被正确预测
+predict(glm.fits, data.frame(Lag1 = c(1.2, 1.5), Lag2 = c(1.1, -0.8)), type = "response")#在特定Lag1和Lag2下的预测投资回报率
+
+```
+
+##线性判别分析
+```{r,echo=TRUE,warning=FALSE}
+library(MASS)
+lda.fit = lda(Direction ~ Lag1 + Lag2, data = Smarket, subset = train)
+lda.fit
+#用样本观测来估计得到的每一类的先验概率pi0=0.492，pi1=0.508，表示训练观测数据中有49.2%对应着市场下降的时期，50.8%对应着市场上升的时期
+#组平均值，用样本均值来估计得到的每个预测变量的每个类的均值，Lag1的mu0=0.043，mu1=-0.040；Lag2的mu0=0.034，mu1=-0.031.表明当市场下跌时，前两天的投资回报率会趋向正值；当市场上涨时，前两天的投资回报率会趋向负值
+#线性判别系数输出给出了线性判别函数中Lag1和Lag2的组合系数，用以形成LDA的决策准则：-0.64*Lag1-0.51*Lag2
+#很大，则LDA分类器预测市场上涨，很小则预测市场下跌（不太懂）
+plot(lda.fit)
+lda.pred = predict(lda.fit, Smarket.2005)
+names(lda.pred)
+lda.class = lda.pred$class#class储存了LDA关于关于市场动向的预测
+table(lda.class, Direction.2005)
+mean(lda.class == Direction.2005)
+sum(lda.pred$posterior[, 1] >= 0.5) #posterior是一个矩阵，第k列是观测属于第k类的后验概率，后验概率设0.5的阈值
+sum(lda.pred$posterior[, 1] < 0.5)
+lda.pred$posterior[1:20, 1]
+lda.class[1:20]#发现>0.5的是down，<0.5的是up
+sum(lda.pred$posterior[, 1] > .9)#后验概率设0.9的阈值（希望对市场下跌的预测非常精准）
+#这里好诡异，我都没有指定哪个是up哪个是down...
+```
+
+##二次线性判别分析
+```{r,echo=TRUE,warning=FALSE}
+qda.fit = qda(Direction ~ Lag1 + Lag2, data = Smarket, subset = train)
+qda.fit
+qda.class = predict(qda.fit, Smarket.2005)$class
+table(qda.class, Direction.2005)
+mean(qda.class == Direction.2005)
+```
+
+##K最近邻
+```{r,echo=TRUE,warning=FALSE}
+library(class)
+train.X = cbind(Lag1, Lag2)[train,]#训练集
+test.X = cbind(Lag1, Lag2)[!train,]#测试集
+train.Direction = Direction[train]
+
+set.seed(1)
+knn.pred = knn(train.X, test.X, train.Direction, k = 1)
+table(knn.pred, Direction.2005)
+mean(knn.pred == Direction.2005)
+knn.pred = knn(train.X, test.X, train.Direction, k = 3)
+table(knn.pred, Direction.2005)
+mean(knn.pred == Direction.2005)
+knn.pred = knn(train.X, test.X, train.Direction, k = 9)
+table(knn.pred, Direction.2005)
+mean(knn.pred == Direction.2005)
+
+```
+
+##大篷车保险数据的一个应用（先不讲）
+```{r,echo=TRUE,warning=FALSE}
+dim(Caravan)
+attach(Caravan)
+summary(Purchase)
+348 / 5822
+standardized.X = scale(Caravan[, -86])
+var(Caravan[, 1])
+var(Caravan[, 2])
+var(standardized.X[, 1])
+var(standardized.X[, 2])
+test = 1:1000
+train.X = standardized.X[-test,]
+test.X = standardized.X[test,]
+train.Y = Purchase[-test]
+test.Y = Purchase[test]
+set.seed(1)
+knn.pred = knn(train.X, test.X, train.Y, k = 1)
+mean(test.Y != knn.pred)
+mean(test.Y != "No")
+table(knn.pred, test.Y)
+9 / (68 + 9)
+knn.pred = knn(train.X, test.X, train.Y, k = 3)
+table(knn.pred, test.Y)
+5 / 26
+knn.pred = knn(train.X, test.X, train.Y, k = 5)
+table(knn.pred, test.Y)
+4 / 15
+glm.fits = glm(Purchase ~ ., data = Caravan, family = binomial, subset = -test)
+glm.probs = predict(glm.fits, Caravan[test,], type = "response")
+glm.pred = rep("No", 1000)
+glm.pred[glm.probs > .5] = "Yes"
+table(glm.pred, test.Y)
+glm.pred = rep("No", 1000)
+glm.pred[glm.probs > .25] = "Yes"
+table(glm.pred, test.Y)
+11 / (22 + 11)
+```
+
+```{r,echo=TRUE,warning=FALSE}
+
+```
